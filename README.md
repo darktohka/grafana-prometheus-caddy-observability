@@ -4,6 +4,8 @@ This repository contains a Docker Compose setup for monitoring a Caddy web serve
 
 ### Architecture Overview
 
+![Architecture](images/architecture.png)
+
 | Service        | Role                        | Data Source                         | Exposed Port                   |
 | :------------- | :-------------------------- | :---------------------------------- | :----------------------------- |
 | **Caddy**      | Web Server, Metrics Emitter | Requests made by users              | 80, 443, 2019, 81              |
