@@ -1,0 +1,89 @@
+services:
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    hostname: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+      - "2019:2019"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile
+      - ./volumes/caddy_logs:/var/log/caddy
+      - ./volumes/caddy:/data
+      - ./html:/srv
+    networks:
+      - observability_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    hostname: prometheus
+    command: --config.file=/etc/prometheus/prometheus.yml --web.listen-address=:9090 --storage.tsdb.path=/prometheus
+    restart: unless-stopped
+    user: "0"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./volumes/prometheus:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - caddy
+    networks:
+      - observability_network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    restart: unless-stopped
+    user: "0"
+    #command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./volumes/loki:/loki
+    ports:
+      - "3100:3100" # Loki HTTP API
+      - "4317:4317" # OTLP GRPC
+      - "4318:4318" # OTLP HTTP
+    networks:
+      - observability_network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    hostname: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./config/promtail-config.yml:/etc/promtail/config.yml
+      - ./volumes/caddy_logs:/var/log/caddy:ro
+    depends_on:
+      - loki
+    networks:
+      - observability_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    hostname: grafana
+    restart: unless-stopped
+    user: "0"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./volumes/grafana:/var/lib/grafana
+      - ./config/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - observability_network
+
+networks:
+  observability_network:
+    driver: bridge
